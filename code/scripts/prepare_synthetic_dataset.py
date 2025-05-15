@@ -8,6 +8,72 @@ import cv2
 from pathlib import Path
 import csv
 
+# Mapping from Applied semantic IDs to MSeg universal taxonomy IDs
+
+APPLIED_TO_MSEG_UNIVERSAL_TAXONOMY_MAP = {
+    0: 194,    # NONE -> unlabeled
+    1: 35,     # BUILDINGS -> building
+    2: 144,    # FENCES -> fence
+    3: 194,    # OTHER -> unlabeled
+    4: 125,    # PEDESTRIANS -> person
+    5: 143,    # POLES -> pole
+    6: 98,     # ROADLINES -> road
+    7: 98,     # ROADS -> road
+    8: 100,    # SIDEWALKS -> sidewalk_pavement
+    9: 174,    # VEGETATION -> vegetation
+    10: 176,   # VEHICLES -> car
+    11: 191,   # WALLS -> wall
+    12: 135,   # TRAFFICSIGNS -> traffic_sign
+    13: 194,   # CUSTOM_ASSET_0 -> unlabeled
+    14: 194,   # CUSTOM_ASSET_1 -> unlabeled
+    15: 194,   # CUSTOM_ASSET_2 -> unlabeled
+    16: 194,   # CUSTOM_ASSET_3 -> unlabeled
+    17: 194,   # CUSTOM_ASSET_4 -> unlabeled
+    18: 194,   # CUSTOM_ASSET_5 -> unlabeled
+    19: 194,   # CUSTOM_ASSET_6 -> unlabeled
+    20: 194,   # CUSTOM_ASSET_7 -> unlabeled (military equipment)
+    21: 194,   # CUSTOM_ASSET_8 -> unlabeled (parking space surfaces)
+    22: 142,   # SKY -> sky
+    23: 131,   # CONES -> road_barrier
+    24: 131,   # BARRIERS -> road_barrier
+    25: 16,    # ANIMALS -> animal_other
+    26: 108,   # PROPS -> plaything_other
+    27: 148,   # ROCKS -> rock
+    28: 102,   # TERRAIN -> terrain
+    29: 194,   # ROBOTS -> unlabeled
+    30: 98,    # SHOULDERS -> road
+    31: 143,   # REFLECTORS -> pole
+    32: 125,   # PASSENGERS -> person
+    33: 136,   # TRAFFIC_LIGHTS -> traffic_light
+}
+
+def convert_gt_seg_mask_to_mseg_mask(gt_seg_mask):
+    """
+    Convert Applied semantic labels to MSeg universal taxonomy labels.
+    
+    Args:
+        gt_seg_mask: numpy array of shape (H, W) containing Applied semantic IDs
+        
+    Returns:
+        grayscale_mseg_mask: numpy array of shape (W, H) with MSeg universal taxonomy IDs, transposed to match RGB orientation
+    """
+    # Verify input is 2D
+    if len(gt_seg_mask.shape) != 2:
+        raise ValueError(f"Expected 2D array, got shape {gt_seg_mask.shape}")
+    
+    # Find any Applied IDs that aren't in our mapping
+    unique_ids = np.unique(gt_seg_mask)
+    unmapped_ids = [id for id in unique_ids if id not in APPLIED_TO_MSEG_UNIVERSAL_TAXONOMY_MAP]
+    if unmapped_ids:
+        print(f"Warning: Found Applied IDs without MSeg mappings: {unmapped_ids}")
+    
+    mseg_mask = np.zeros_like(gt_seg_mask, dtype=np.uint8)
+    for applied_id, mseg_id in APPLIED_TO_MSEG_UNIVERSAL_TAXONOMY_MAP.items():
+        mseg_mask[gt_seg_mask == applied_id] = mseg_id
+    
+    # Transpose the mask to match RGB orientation
+    return mseg_mask.T
+
 def compute_gbuffer_statistics(gbuffer_arrays):
     """
     Compute mean and standard deviation for each channel of g-buffer data.
@@ -40,7 +106,8 @@ def prepare_synthetic_dataset(dataset_dir: str) -> None:
     output_dirs = {
         'rgb': dataset_dir / "rgb",
         'gt_seg': dataset_dir / "gt_seg",
-        'gbuffer': dataset_dir / "gbuffer"
+        'gbuffer': dataset_dir / "gbuffer",
+        'mseg': dataset_dir / "mseg"
     }
     
     # Fields to stack into gbuffer
@@ -87,10 +154,15 @@ def prepare_synthetic_dataset(dataset_dir: str) -> None:
                     # Extract and stack g-buffer data
                     sensor_output = dataset.get_sensor_outputs(sample_data.token)[0]
                     
-                    # Save semantic segmentation separately
+                    # Save gt semantic segmentation 
                     gt_seg = dataset.get_sensor_output_field_data(sensor_output.token, "GROUND_TRUTH_SEMANTIC_CLASS")
                     gt_seg_filename = output_dirs['gt_seg'] / rgb_basename.replace('.png', '.npy')
                     np.save(str(gt_seg_filename), gt_seg)
+
+                    # Compute robust label map from gt semantic segmentation by mapping applied labels to mseg universal taxonomy labels
+                    mseg_mask = convert_gt_seg_mask_to_mseg_mask(gt_seg)
+                    mseg_filename = output_dirs['mseg'] / rgb_basename
+                    cv2.imwrite(str(mseg_filename), mseg_mask)
                     
                     # Stack g-buffer fields
                     gbuffer_arrays = []

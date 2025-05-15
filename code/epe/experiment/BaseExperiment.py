@@ -8,6 +8,7 @@ import numpy as np
 from scipy.io import savemat
 import torch
 from torch import autograd
+from torch.utils.tensorboard import SummaryWriter
 import yaml
 
 
@@ -194,12 +195,13 @@ class NetworkState:
 
 
 class LogSync:
-	def __init__(self, logger, log_interval):
+	def __init__(self, logger, log_interval, writer):
 		self.scalars = {}
 		self._log          = logger
 		self._log_interval = log_interval
 		self._scalar_queue = {}
 		self._delay        = 3
+		self.writer        = writer
 
 
 	def update(self, i, scalars):
@@ -244,7 +246,10 @@ class LogSync:
 				valid = {j:float(vj) for j,vj in v.items() if i - j >= self._delay}
 				if valid:
 					vv = valid.values()
-					line.append(f'{sum(vv)/len(vv):.2f} ')
+					avg_value = sum(vv)/len(vv)
+					line.append(f'{avg_value:.2f} ')
+					# Log to tensorboard
+					self.writer.add_scalar(f'metrics/{k}', avg_value, i)
 					for vk in valid.keys():
 						del v[vk]
 						pass
@@ -284,7 +289,13 @@ class BaseExperiment:
 		self._load_config(args.config)
 		self._parse_config()
 
-		self._log_sync    = LogSync(self._log, self._log_interval)
+		# Initialize tensorboard writer
+		now = datetime.datetime.now()
+		tensorboard_dir = Path('tensorboard') / f'{self.weight_save}_{datetime.date.today().isoformat()}_{now.hour}-{now.minute}-{now.second}'
+		self.writer = SummaryWriter(log_dir=tensorboard_dir)
+		self._log.info(f'TensorBoard logs will be written to {tensorboard_dir}')
+
+		self._log_sync = LogSync(self._log, self._log_interval, self.writer)
 
 		self._save_id = 0
 		self._init_directories()
@@ -633,5 +644,9 @@ class BaseExperiment:
 
 	
 	def run(self):
-		self.__getattribute__(self.action)()
-		pass
+		try:
+			self.__getattribute__(self.action)()
+		finally:
+			if hasattr(self, 'writer'):
+				self.writer.close()
+			pass

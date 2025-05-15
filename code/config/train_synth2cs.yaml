@@ -1,5 +1,5 @@
 ---
-weight_dir: checkpoints
+weight_dir: checkpoints/urban_synth2cs
 
 common:
   unpin: false
@@ -26,13 +26,13 @@ real_dataset:
 
 fake_dataset: 
   name: AppliedSynthetic
-  train_filelist: /home/sanjitk/repos/PhotorealismEnhancement/data/synthetic/example_dataset_20250513002425/example_dataset_20250513002425_files.csv
-  val_filelist: /home/sanjitk/repos/PhotorealismEnhancement/data/synthetic/example_dataset_20250513002425/example_dataset_20250513002425_files.csv
-  test_filelist: /home/sanjitk/repos/PhotorealismEnhancement/data/synthetic/example_dataset_20250513002425/example_dataset_20250513002425_files.csv
+  train_filelist: /home/sanjitk/repos/PhotorealismEnhancement/data/synthetic/urban_synth/urban_synth_files.csv
+  val_filelist: /home/sanjitk/repos/PhotorealismEnhancement/data/synthetic/urban_synth/urban_synth_files.csv
+  test_filelist: /home/sanjitk/repos/PhotorealismEnhancement/data/synthetic/urban_synth/urban_synth_files.csv
   sampling: 
     type: 'matching'
-    matched_crop_path: /home/sanjitk/repos/PhotorealismEnhancement/data/joint/example_dataset_20250513002425_to_cityscapes_munich_resized/knn_matches_filtered.csv
-    crop_weight_path: /home/sanjitk/repos/PhotorealismEnhancement/data/joint/example_dataset_20250513002425_to_cityscapes_munich_resized/crop_weights.npz
+    matched_crop_path: /home/sanjitk/repos/PhotorealismEnhancement/data/synthetic/urban_synth/knn_matches_filtered.csv
+    crop_weight_path: /home/sanjitk/repos/PhotorealismEnhancement/data/synthetic/urban_synth/crop_weights.npz
 
 
 generator:

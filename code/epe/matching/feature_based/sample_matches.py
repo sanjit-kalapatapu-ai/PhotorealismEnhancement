@@ -38,7 +38,11 @@ if __name__ == '__main__':
 	p.add_argument('dst_img_path',  type=Path, help="Path to file with image paths.")
 	p.add_argument('dst_crop_path', type=Path, help="Path to file with sampled crops.")
 	p.add_argument('match_path', type=Path, help="Path to file with matches.")
+	p.add_argument('--output_dir', type=Path, help="Path to output directory.")
 	args = p.parse_args()
+
+	# Create output directory if it doesn't exist
+	args.output_dir.mkdir(parents=True, exist_ok=True)
 
 	src_dataset = ImageDataset('src', read_filelist(args.src_img_path, 1, False))
 	dst_dataset = ImageDataset('dst', read_filelist(args.dst_img_path, 1, False))
@@ -57,13 +61,16 @@ if __name__ == '__main__':
 		src_id, knn = np.nonzero(np.logical_and(thresholds[ti] < s, s < t))
 		crops = []
 		rd = np.random.permutation(src_id.shape[0])
+
+		# Replaced with: https://github.com/isl-org/PhotorealismEnhancement/issues/26#issuecomment-1320999481
 		for x in range(min(25,src_id.shape[0])):
 			i = int(rd[x])
-			print(f'\tloading sample {i}...')
-			img, _ = src_dataset.get_by_path(src_paths[int(src_id[i])])
+			#img, _ = src_dataset.get_by_path(src_paths[int(src_id[i])])
+			img = torch.from_numpy(src_dataset._load_img(src_paths[int(src_id[i])])).permute(2,0,1)
 			r0,r1,c0,c1 = src_coords[int(src_id[i])]
 			a = img[:,r0:r1,c0:c1].unsqueeze(0)
-			img, _ = dst_dataset.get_by_path(dst_paths[int(dst_id[int(src_id[i]), int(knn[i])])])
+			#img, _ = dst_dataset.get_by_path(dst_paths[int(dst_id[int(src_id[i]), int(knn[i])])])
+			img = torch.from_numpy(dst_dataset._load_img(dst_paths[int(dst_id[int(src_id[i]), int(knn[i])])])).permute(2,0,1)
 			r0,r1,c0,c1 = dst_coords[int(dst_id[int(src_id[i]), int(knn[i])])]
 			b = img[:,r0:r1,c0:c1].unsqueeze(0)
 			crops.append(a)
@@ -72,7 +79,26 @@ if __name__ == '__main__':
 
 		if len(crops) > 0:
 			grid = make_grid(torch.cat(crops, 0), nrow=2)
-			imwrite(f'knn_{t}.jpg', (255.0*grid.permute(1,2,0).numpy()).astype(np.uint8))
+			some_arr = (255.0*grid.permute(1,2,0).cpu().detach().numpy()).astype(np.uint8)
+			imwrite(f'{args.output_dir}/knn_{t}.jpg', some_arr)
 			pass
 		pass
+		# for x in range(min(25,src_id.shape[0])):
+		# 	i = int(rd[x])
+		# 	print(f'\tloading sample {i}...')
+		# 	img, _ = src_dataset.get_by_path(src_paths[int(src_id[i])])
+		# 	r0,r1,c0,c1 = src_coords[int(src_id[i])]
+		# 	a = img[:,r0:r1,c0:c1].unsqueeze(0)
+		# 	img, _ = dst_dataset.get_by_path(dst_paths[int(dst_id[int(src_id[i]), int(knn[i])])])
+		# 	r0,r1,c0,c1 = dst_coords[int(dst_id[int(src_id[i]), int(knn[i])])]
+		# 	b = img[:,r0:r1,c0:c1].unsqueeze(0)
+		# 	crops.append(a)
+		# 	crops.append(b)
+		# 	pass
+
+		# if len(crops) > 0:
+		# 	grid = make_grid(torch.cat(crops, 0), nrow=2)
+		# 	imwrite(f'knn_{t}.jpg', (255.0*grid.permute(1,2,0).numpy()).astype(np.uint8))
+		# 	pass
+		# pass
 	pass

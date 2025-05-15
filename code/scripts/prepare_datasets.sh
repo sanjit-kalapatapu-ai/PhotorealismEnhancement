@@ -135,9 +135,9 @@ fi
 # log "✓ Sampling weights created"
 
 # Kick off training:
-python /home/sanjitk/repos/PhotorealismEnhancement/code/epe/EPEExperiment.py train ./config/train_synth2cs.yaml --log=info
+# python /home/sanjitk/repos/PhotorealismEnhancement/code/epe/EPEExperiment.py train ./config/train_synth2cs.yaml --log=info
 
 # Kick off inference using trained model:
-# python /home/sanjitk/repos/PhotorealismEnhancement/code/epe/EPEExperiment.py test ./config/test_synth2cs.yaml
+python /home/sanjitk/repos/PhotorealismEnhancement/code/epe/EPEExperiment.py test ./config/test_synth2cs.yaml
 
 log "All steps completed successfully!"

@@ -18,11 +18,9 @@ def center(x, m, s):
 
 def material_from_gt_label(gt_labelmap):
 	""" Merges several classes. """
-    # TODO: this mapping is not perfect. Once we have some initial results, determine whether
-	# we really need to force this mapping, or if we can just preserve the original labels.
-
-	h,w = gt_labelmap.shape
-	shader_map = np.zeros((h, w, 12), dtype=np.float32)
+    # TODO: Sanjit - do we really need to utilize this mapping?
+	w,h = gt_labelmap.shape
+	shader_map = np.zeros((w, h, 12), dtype=np.float32)
 	shader_map[:,:,0] = (gt_labelmap == 22).astype(np.float32) # sky
 	shader_map[:,:,1] = (np.isin(gt_labelmap, [6, 7, 8, 30])).astype(np.float32) # road / static / sidewalk
 	shader_map[:,:,2] = (np.isin(gt_labelmap, [10])).astype(np.float32) # vehicle
@@ -85,6 +83,12 @@ class AppliedSyntheticDataset(SyntheticDataset):
 			self._log.warning(f'Failed to load dataset stats: {e}')
 			pass
 
+		# Compute number of g-buffer channels once during initialization
+		first_gbuffer_path = self._paths[0][2]  # Assuming index 2 contains g-buffer paths
+		gbuffer = np.load(first_gbuffer_path)
+		self._num_gbuffer_channels = gbuffer.shape[-1]
+		self._log.info(f'G-buffer has {self._num_gbuffer_channels} channels')
+
 		self._log.info(f'Found {len(self._paths)} samples.')
 		pass
 
@@ -92,16 +96,11 @@ class AppliedSyntheticDataset(SyntheticDataset):
 	@property
 	def num_gbuffer_channels(self):
 		""" Number of image channels the provided G-buffers contain."""
-		# depth, world_normal_x, world_normal_y, world_normal_z
-        # TODO Sanjit: can probably determine this dynamically from config rather than hardcoding.
-		return 4
-
+		return self._num_gbuffer_channels
 
 	@property
 	def num_classes(self):
 		""" Number of classes in the semantic segmentation maps."""
-		# TODO Sanjit: we currently merge Applied semantic classes into a set of 12 classes
-		# as originally done in the pfd.py file, but we may not need to do this.
 		return 12
 
 
@@ -137,8 +136,9 @@ class AppliedSyntheticDataset(SyntheticDataset):
 			gbuffers = center(gbuffers, self._gbuf_mean, self._gbuf_std)
 			pass
 
-        # Load gt_labels and potentially normalize
-		gt_labels = mat2tensor(material_from_gt_label(np.load(gt_label_path)))
+        # Load gt_labels, map to expected material classes, and potentially normalize
+		gt_labels = np.load(gt_label_path).astype(np.float32)
+		gt_labels = mat2tensor(material_from_gt_label(gt_labels))
 		gt_labels = np.transpose(gt_labels, (0, 2, 1))
 		if gt_labels is not None and torch.max(gt_labels) > 128:
 			gt_labels = gt_labels / 255.0

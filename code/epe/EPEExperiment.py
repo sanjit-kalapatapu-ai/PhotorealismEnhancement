@@ -155,7 +155,13 @@ class EPEExperiment(ee.GANExperiment):
 		elif self.action == 'test':
 			self.dataset_fake_val = fake_datasets[self.fake_name](ds.utils.read_filelist(self.fake_test_path, 4, True))
 		else:
-			self.dataset_fake_val = fake_datasets[self.fake_name](ds.utils.read_filelist(self.fake_val_path, 4, True))
+			# During training, sample a random batch of images from the full validation set to do validation on
+			val_paths = ds.utils.read_filelist(self.fake_val_path, 4, True)
+			# Shuffle the validation paths
+			random.shuffle(val_paths)
+			# Take only the first 100 paths
+			val_paths = val_paths[:100]
+			self.dataset_fake_val = fake_datasets[self.fake_name](val_paths)
 			pass
 
 		# training

@@ -1,7 +1,7 @@
 ---
 weight_dir: checkpoints/urban_synth2cs
-name_load: synth2cs-10000
-our_dir: /home/sanjitk/repos/PhotorealismEnhancement/data/synthetic/urban_synth/urban_synth2cs_10000_outputs
+name_load: urban_synth2cs-10000
+our_dir: /home/sanjitk/repos/PhotorealismEnhancement/data/synthetic/urban_synth/blah
 
 common:
   unpin: false
@@ -15,7 +15,7 @@ train:
   max_iterations: 1000000
   save_epochs: -1
   save_iterations: 10000
-  name_save: urban_synth2cs-10000
+  name_save: urban_synth2cs_original_semseg_classes_10000
   shuffle_train: true
   val_interval: 10000
    

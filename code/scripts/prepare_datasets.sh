@@ -85,7 +85,7 @@ fi
 
 # Prepare the synthetic dataset
 # log "Preparing synthetic dataset..."
-# python prepare_synthetic_dataset.py $synthetic_dataset_dir
+# python /home/sanjitk/repos/PhotorealismEnhancement/code/scripts/prepare_synthetic_dataset.py $synthetic_dataset_dir
 # log "✓ Synthetic dataset prepared"
 
 # Generate the mseg outputs for synthetic dataset:
@@ -95,7 +95,7 @@ fi
 
 # Generate crops of real and synthetic datasets:
 # log "Generating crops for datasets..."
-# python /home/sanjitk/repos/PhotorealismEnhancement/code/epe/matching/feature_based/collect_crops.py "$real_dataset_name" "${real_dataset_dir}/${real_dataset_name}_files.csv" --out_dir "$real_dataset_dir"
+# # python /home/sanjitk/repos/PhotorealismEnhancement/code/epe/matching/feature_based/collect_crops.py "$real_dataset_name" "${real_dataset_dir}/${real_dataset_name}_files.csv" --out_dir "$real_dataset_dir"
 # python /home/sanjitk/repos/PhotorealismEnhancement/code/epe/matching/feature_based/collect_crops.py "$synthetic_dataset_name" "${synthetic_dataset_dir}/${synthetic_dataset_name}_files.csv" --out_dir "$synthetic_dataset_dir"
 # log "✓ Crops generated"
 
@@ -135,9 +135,9 @@ fi
 # log "✓ Sampling weights created"
 
 # Kick off training:
-# python /home/sanjitk/repos/PhotorealismEnhancement/code/epe/EPEExperiment.py train ./config/train_synth2cs.yaml --log=info
+python /home/sanjitk/repos/PhotorealismEnhancement/code/epe/EPEExperiment.py train ./config/train_synth2cs.yaml --log=info
 
 # Kick off inference using trained model:
-python /home/sanjitk/repos/PhotorealismEnhancement/code/epe/EPEExperiment.py test ./config/test_synth2cs.yaml
+# python /home/sanjitk/repos/PhotorealismEnhancement/code/epe/EPEExperiment.py test ./config/test_synth2cs.yaml
 
 log "All steps completed successfully!"

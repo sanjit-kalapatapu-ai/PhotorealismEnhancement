@@ -79,18 +79,18 @@ def compute_gbuffer_statistics(gbuffer_arrays):
     Compute mean and standard deviation for each channel of g-buffer data.
     
     Args:
-        gbuffer_arrays: List of g-buffer arrays, each of shape (H, W, 4)
+        gbuffer_arrays: List of g-buffer arrays, each of shape (H, W, C) where C is the number of channels
         
     Returns:
-        means: Array of shape (4,) with mean per channel
-        stds: Array of shape (4,) with standard deviation per channel
+        means: Array of shape (C,) with mean per channel
+        stds: Array of shape (C,) with standard deviation per channel
     """
     # Stack all g-buffers along first dimension
-    all_gbuffers = np.stack(gbuffer_arrays, axis=0)  # (N, H, W, 4)
+    all_gbuffers = np.stack(gbuffer_arrays, axis=0)  # (N, H, W, C)
     
     # Compute statistics per channel
-    means = np.mean(all_gbuffers, axis=(0,1,2))  # (4,)
-    stds = np.std(all_gbuffers, axis=(0,1,2))  # (4,)
+    means = np.mean(all_gbuffers, axis=(0,1,2))  # (C,)
+    stds = np.std(all_gbuffers, axis=(0,1,2))  # (C,)
     
     return means, stds
 
@@ -111,6 +111,9 @@ def prepare_synthetic_dataset(dataset_dir: str) -> None:
     }
     
     # Fields to stack into gbuffer
+    # This list can be modified to include any desired g-buffer fields
+    # Each field will become a channel in the final stacked g-buffer array
+    # The order of fields here determines the channel order in the output
     gbuffer_fields = [
         "GROUND_TRUTH_POSITION_X",      # depth - channel 0
         "GROUND_TRUTH_WORLD_NORMAL_X",  # normal x - channel 1
@@ -197,8 +200,8 @@ def prepare_synthetic_dataset(dataset_dir: str) -> None:
     stats_file = dataset_dir / 'gbuffer_stats.npz'
     np.savez(
         stats_file,
-        g_m=g_means,  # shape: (4,) - one mean per channel
-        g_s=g_stds    # shape: (4,) - one std per channel
+        g_m=g_means,  # shape: (C,) - one mean per channel
+        g_s=g_stds    # shape: (C,) - one std per channel
     )
     print(f"Saved g-buffer statistics to {stats_file}")
     print(f"G-buffer means: {g_means}")

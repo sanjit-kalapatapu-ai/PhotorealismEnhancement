@@ -466,10 +466,19 @@ class BaseExperiment:
 
 
 	def dump_val(self, i, batch_id, img_vars):
+		# Save as .mat files
 		d = {('i_%s' % k):v for k,v in img_vars.items()}
 		self.save_dbg(d, 'val_%d_%d' % (i,batch_id))
+
+		# Add images to tensorboard
+		for k, v in img_vars.items():
+			# Move channel dimension to correct position for tensorboard (N,C,H,W)
+			img_tensor = v.detach().to('cpu')
+			if len(img_tensor.shape) == 3:  # Add batch dimension if missing
+				img_tensor = img_tensor.unsqueeze(0)
+			self.writer.add_images(f'val_images/step_{i}/img_{batch_id}/{k}', img_tensor, i)
+			self._log.debug(f'val_images/step_{i}/img_{batch_id}/{k} to tensorboard')
 		pass
-	
 
 	def save_dbg(self, d, name=None):
 		if name is None:

@@ -95,16 +95,16 @@ fi
 
 # Generate crops of real and synthetic datasets:
 # log "Generating crops for datasets..."
-# # python /home/sanjitk/repos/PhotorealismEnhancement/code/epe/matching/feature_based/collect_crops.py "$real_dataset_name" "${real_dataset_dir}/${real_dataset_name}_files.csv" --out_dir "$real_dataset_dir"
+# python /home/sanjitk/repos/PhotorealismEnhancement/code/epe/matching/feature_based/collect_crops.py "$real_dataset_name" "${real_dataset_dir}/${real_dataset_name}_files.csv" --out_dir "$real_dataset_dir"
 # python /home/sanjitk/repos/PhotorealismEnhancement/code/epe/matching/feature_based/collect_crops.py "$synthetic_dataset_name" "${synthetic_dataset_dir}/${synthetic_dataset_name}_files.csv" --out_dir "$synthetic_dataset_dir"
 # log "✓ Crops generated"
 
-# Match crops of real and synthetic datasets:
+# # Match crops of real and synthetic datasets:
 # log "Matching crops between datasets..."
 # python /home/sanjitk/repos/PhotorealismEnhancement/code/epe/matching/feature_based/find_knn.py "${synthetic_dataset_dir}/crop_${synthetic_dataset_name}.npz" "${real_dataset_dir}/crop_${real_dataset_name}.npz" "${synthetic_dataset_dir}/knn_matches.npz" -k 10
 # log "✓ Crops matched"
 
-# Generate visualization of matched crops:
+# # Generate visualization of matched crops:
 # log "Generating visualizations of matched crops..."
 # python /home/sanjitk/repos/PhotorealismEnhancement/code/epe/matching/feature_based/sample_matches.py \
 #     "${synthetic_dataset_dir}/${synthetic_dataset_name}_files.csv" \
@@ -115,7 +115,7 @@ fi
 #     --output_dir "${synthetic_dataset_dir}/knn_match_viz"
 # log "✓ Visualizations generated"
 
-#Filter crops within 1.0 distance threshold in VGG embedding space:
+# #Filter crops within 1.0 distance threshold in VGG embedding space:
 # log "Filtering crops with distance threshold..."
 # python /home/sanjitk/repos/PhotorealismEnhancement/code/epe/matching/filter.py \
 #     "${synthetic_dataset_dir}/knn_matches.npz" \
@@ -125,7 +125,7 @@ fi
 #     "${synthetic_dataset_dir}/knn_matches_filtered.csv"
 # log "✓ Crops filtered"
 
-# Create sampling weights for crops:
+# # Create sampling weights for crops:
 # log "Creating sampling weights..."
 # python /home/sanjitk/repos/PhotorealismEnhancement/code/epe/matching/compute_weights.py \
 #     "${synthetic_dataset_dir}/knn_matches_filtered.csv" \

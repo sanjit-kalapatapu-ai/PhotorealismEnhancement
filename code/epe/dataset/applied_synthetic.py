@@ -11,6 +11,8 @@ from .batch_types import EPEBatch
 from .synthetic import SyntheticDataset
 from .utils import mat2tensor, normalize_dim
 
+NUM_APPLIED_SEMANTIC_CLASSES = 34
+
 def center(x, m, s):
 	for i in range(x.shape[0]):
 		x[i,:,:] = (x[i,:,:] - m[i]) / s[i]
@@ -18,7 +20,6 @@ def center(x, m, s):
 
 def material_from_gt_label(gt_labelmap):
 	""" Merges several classes. """
-    # TODO: Sanjit - do we really need to utilize this mapping?
 	w,h = gt_labelmap.shape
 	shader_map = np.zeros((w, h, 12), dtype=np.float32)
 	shader_map[:,:,0] = (gt_labelmap == 22).astype(np.float32) # sky
@@ -96,12 +97,13 @@ class AppliedSyntheticDataset(SyntheticDataset):
 	@property
 	def num_gbuffer_channels(self):
 		""" Number of image channels the provided G-buffers contain."""
-		return self._num_gbuffer_channels
+		return 4
+		# return self._num_gbuffer_channels
 
 	@property
 	def num_classes(self):
 		""" Number of classes in the semantic segmentation maps."""
-		return 12
+		return NUM_APPLIED_SEMANTIC_CLASSES
 
 
 	@property
@@ -131,6 +133,7 @@ class AppliedSyntheticDataset(SyntheticDataset):
 		# Slightly concerned from this comment: https://github.com/isl-org/PhotorealismEnhancement/issues/60#issuecomment-1913178238  
 		gbuffers = np.load(gbuffer_path)
 		gbuffers = np.transpose(gbuffers, (2, 1, 0))
+		gbuffers = gbuffers[:4,:,:]
 		gbuffers = torch.from_numpy(gbuffers.astype(np.float32)).float()
 		if self._gbuf_mean is not None:
 			gbuffers = center(gbuffers, self._gbuf_mean, self._gbuf_std)
@@ -138,13 +141,24 @@ class AppliedSyntheticDataset(SyntheticDataset):
 
         # Load gt_labels, map to expected material classes, and potentially normalize
 		gt_labels = np.load(gt_label_path).astype(np.float32)
-		gt_labels = mat2tensor(material_from_gt_label(gt_labels))
+		
+		# We aren't using the below method for squashing the classes to 12 classes, and instead are using the raw Applied semantic classes
+		# gt_labels = mat2tensor(material_from_gt_label(gt_labels))
+
+		# Convert to one-hot encoded format
+		w, h = gt_labels.shape
+		one_hot = np.zeros((w, h, NUM_APPLIED_SEMANTIC_CLASSES), dtype=np.float32)
+		for i in range(NUM_APPLIED_SEMANTIC_CLASSES):
+			one_hot[:, :, i] = (gt_labels == i).astype(np.float32)
+		gt_labels = mat2tensor(one_hot)
+
 		gt_labels = np.transpose(gt_labels, (0, 2, 1))
+
 		if gt_labels is not None and torch.max(gt_labels) > 128:
 			gt_labels = gt_labels / 255.0
 			pass
 
-        # Load robust labels (computed via mseg)
+        # Load robust labels (computed by mapping applied gt semseg labels to mseg taxonomy)
 		robust_labels = imageio.imread(robust_label_path)
 		robust_labels = torch.LongTensor(robust_labels[:,:]).unsqueeze(0)
 

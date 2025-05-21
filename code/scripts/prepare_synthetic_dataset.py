@@ -94,46 +94,77 @@ def compute_gbuffer_statistics(gbuffer_arrays):
     
     return means, stds
 
-def prepare_synthetic_dataset(dataset_dir: str) -> None:
+def compute_and_save_gbuffer_statistics(dataset_dir: Path) -> None:
     """
-    Prepare synthetic dataset by organizing data into appropriate subdirectories.
+    Compute and save g-buffer statistics by sampling a subset of files.
     
     Args:
-        dataset_dir: Path to the synthetic dataset directory
+        dataset_dir: Path to the dataset directory containing the gbuffer subdirectory
     """
-    dataset_dir = Path(dataset_dir)
-    # Setup output directories
-    output_dirs = {
-        'rgb': dataset_dir / "rgb",
-        'gt_seg': dataset_dir / "gt_seg",
-        'gbuffer': dataset_dir / "gbuffer",
-        'mseg': dataset_dir / "mseg"
-    }
+    print("Computing g-buffer statistics...")
     
-    # Fields to stack into gbuffer
-    # This list can be modified to include any desired g-buffer fields
-    # Each field will become a channel in the final stacked g-buffer array
-    # The order of fields here determines the channel order in the output
-    gbuffer_fields = [
-        "GROUND_TRUTH_POSITION_X",      # depth - channel 0
-        "GROUND_TRUTH_WORLD_NORMAL_X",  # normal x - channel 1
-        "GROUND_TRUTH_WORLD_NORMAL_Y",  # normal y - channel 2
-        "GROUND_TRUTH_WORLD_NORMAL_Z"   # normal z - channel 3
-    ]
+    # Get list of all gbuffer files
+    gbuffer_files = list(dataset_dir.glob("gbuffer/*.npy"))
+    print(f"Found {len(gbuffer_files)} g-buffer files")
+    
+    # Sample a subset of files (e.g., 1000 files or 10% of the dataset, whichever is smaller)
+    num_samples = min(1000, int(0.1 * len(gbuffer_files)))
+    sampled_files = np.random.choice(gbuffer_files, size=num_samples, replace=False)
+    print(f"Sampling {num_samples} files for statistics computation")
+    
+    # Load and process sampled files
+    means_per_file = []
+    for gbuffer_filename in sampled_files:
+        gbuffer = np.load(gbuffer_filename)
+        means_per_file.append(gbuffer.mean(axis=(0, 1)))  # Average over height and width
+    
+    # Stack and compute final statistics
+    means_per_file = np.stack(means_per_file)
+    g_means = means_per_file.mean(axis=0)
+    g_stds = means_per_file.std(axis=0)
+    
+    stats_file = dataset_dir / 'gbuffer_stats.npz'
+    np.savez(
+        stats_file,
+        g_m=g_means,  # shape: (C,) - one mean per channel
+        g_s=g_stds    # shape: (C,) - one std per channel
+    )
+    print(f"Saved g-buffer statistics to {stats_file}")
+    print(f"G-buffer means: {g_means}")
+    print(f"G-buffer stds: {g_stds}")
 
-    # Create output directories
-    for dir_path in output_dirs.values():
-        os.makedirs(dir_path, exist_ok=True)
+def write_dataset_csv(dataset_dir: Path, file_mappings: list) -> None:
+    """
+    Write the dataset file mappings to a CSV file.
     
-    # Store all file paths for CSV
+    Args:
+        dataset_dir: Path to the dataset directory
+        file_mappings: List of lists containing [rgb_path, mseg_path, gbuffer_path, gt_seg_path]
+    """
+    csv_path = dataset_dir / f"{dataset_dir.name}_files.csv"
+    print(f"Writing CSV file to {csv_path}")
+    with open(csv_path, 'w', newline='') as f:
+        writer = csv.writer(f)
+        writer.writerows(file_mappings)
+    
+    print(f"Found {len(file_mappings)} images")
+    print(f"CSV file created at: {csv_path}")
+
+def process_dataset(dataset, dataset_dir: Path, output_dirs: dict, gbuffer_fields: list) -> list:
+    """
+    Process the dataset by iterating through scenes, samples, and sample data.
+    
+    Args:
+        dataset: SyntheticDatasetLoader instance
+        dataset_dir: Path to the dataset directory
+        output_dirs: Dictionary mapping directory types to their paths
+        gbuffer_fields: List of g-buffer field names to process
+        
+    Returns:
+        list: List of file mappings [rgb_path, mseg_path, gbuffer_path, gt_seg_path]
+    """
     file_mappings = []
-    # Store all g-buffer arrays for computing statistics
-    all_gbuffers = []
     
-    # Load dataset
-    dataset = SyntheticDatasetLoader.load_from_local_dataroot(local_dataroot=str(dataset_dir))
-    
-    # Process all scenes and samples
     for scene in dataset.list_scenes():
         for sample in dataset.get_samples(scene.token):
             for sample_data in dataset.get_sample_data(sample.token):
@@ -181,43 +212,59 @@ def prepare_synthetic_dataset(dataset_dir: str) -> None:
                     gbuffer_filename = output_dirs['gbuffer'] / rgb_basename.replace('.png', '.npy')
                     np.save(str(gbuffer_filename), gbuffer)
                     
-                    # Store g-buffer for statistics computation
-                    all_gbuffers.append(gbuffer)
-                    
                     # Store absolute paths for CSV
                     file_mappings.append([
                         str(rgb_output_path.absolute()),
-                        str(rgb_output_path.absolute().parent.parent / 'mseg' / 'gray' / rgb_output_path.name), # TODO Sanjit: this assumes we have already run mseg on the synth rgb data, we should incorporate it into this script.
+                        str(rgb_output_path.absolute().parent.parent / 'mseg' / 'gray' / rgb_output_path.name),
                         str(gbuffer_filename.absolute()),
                         str(gt_seg_filename.absolute())
                     ])
                 else:
                     print(f"Skipping non-camera modality: {sensor_modality}")
     
+    return file_mappings
+
+def prepare_synthetic_dataset(dataset_dir: str) -> None:
+    """
+    Prepare synthetic dataset by organizing data into appropriate subdirectories.
+    
+    Args:
+        dataset_dir: Path to the synthetic dataset directory
+    """
+    dataset_dir = Path(dataset_dir)
+    # Setup output directories
+    output_dirs = {
+        'rgb': dataset_dir / "rgb",
+        'gt_seg': dataset_dir / "gt_seg",
+        'gbuffer': dataset_dir / "gbuffer",
+        'mseg': dataset_dir / "mseg"
+    }
+    
+    # Fields to stack into gbuffer
+    gbuffer_fields = [
+        "GROUND_TRUTH_POSITION_X",      # depth - channel 0
+        "GROUND_TRUTH_WORLD_NORMAL_X",  # normal x - channel 1
+        "GROUND_TRUTH_WORLD_NORMAL_Y",  # normal y - channel 2
+        "GROUND_TRUTH_WORLD_NORMAL_Z"   # normal z - channel 3
+    ]
+
+    # Create output directories
+    for dir_path in output_dirs.values():
+        os.makedirs(dir_path, exist_ok=True)
+    
+    # Load dataset
+    dataset = SyntheticDatasetLoader.load_from_local_dataroot(local_dataroot=str(dataset_dir))
+    
+    # Process dataset and get file mappings
+    file_mappings = process_dataset(dataset, dataset_dir, output_dirs, gbuffer_fields)
+    
     # Compute and save g-buffer statistics
-    print("Computing g-buffer statistics...")
-    g_means, g_stds = compute_gbuffer_statistics(all_gbuffers)
-    stats_file = dataset_dir / 'gbuffer_stats.npz'
-    np.savez(
-        stats_file,
-        g_m=g_means,  # shape: (C,) - one mean per channel
-        g_s=g_stds    # shape: (C,) - one std per channel
-    )
-    print(f"Saved g-buffer statistics to {stats_file}")
-    print(f"G-buffer means: {g_means}")
-    print(f"G-buffer stds: {g_stds}")
+    compute_and_save_gbuffer_statistics(dataset_dir)
     
     # Write CSV file
-    csv_path = dataset_dir / f"{dataset_dir.name}_files.csv"
-    print(f"Writing CSV file to {csv_path}")
-    with open(csv_path, 'w', newline='') as f:
-        writer = csv.writer(f)
-        # Write data
-        writer.writerows(file_mappings)
+    write_dataset_csv(dataset_dir, file_mappings)
     
     print("Processing complete!")
-    print(f"Found {len(file_mappings)} images")
-    print(f"CSV file created at: {csv_path}")
 
 def main():
     parser = argparse.ArgumentParser(description='Prepare synthetic dataset by organizing data into appropriate subdirectories')

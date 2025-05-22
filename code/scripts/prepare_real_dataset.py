@@ -30,7 +30,7 @@ def create_mapping_csv(dataset_dir: Path) -> None:
     print(f"Processing {len(rgb_files)} images...")
     for rgb_path in rgb_files:
         # Expected corresponding MSeg file (with _seg.png suffix)
-        mseg_path = mseg_dir / 'gray' / {rgb_path.stem}.png
+        mseg_path = mseg_dir / 'gray' / f"{rgb_path.stem}.png"
         
         if not mseg_path.exists():
             print(f"Warning: No matching MSeg file for {rgb_path}")

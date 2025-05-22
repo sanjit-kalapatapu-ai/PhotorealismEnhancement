@@ -215,7 +215,7 @@ def process_dataset(dataset, dataset_dir: Path, output_dirs: dict, gbuffer_field
                     # Store absolute paths for CSV
                     file_mappings.append([
                         str(rgb_output_path.absolute()),
-                        str(rgb_output_path.absolute().parent.parent / 'mseg' / 'gray' / rgb_output_path.name),
+                        str(rgb_output_path.absolute().parent.parent / 'mseg' / rgb_output_path.name),
                         str(gbuffer_filename.absolute()),
                         str(gt_seg_filename.absolute())
                     ])
@@ -245,7 +245,11 @@ def prepare_synthetic_dataset(dataset_dir: str) -> None:
         "GROUND_TRUTH_POSITION_X",      # depth - channel 0
         "GROUND_TRUTH_WORLD_NORMAL_X",  # normal x - channel 1
         "GROUND_TRUTH_WORLD_NORMAL_Y",  # normal y - channel 2
-        "GROUND_TRUTH_WORLD_NORMAL_Z"   # normal z - channel 3
+        "GROUND_TRUTH_WORLD_NORMAL_Z",   # normal z - channel 3
+        "GROUND_TRUTH_WORLD_POSITION_X", # diffuse r - channel 4
+        "GROUND_TRUTH_WORLD_POSITION_Y", # diffuse g - channel 5
+        "GROUND_TRUTH_WORLD_POSITION_Z", # diffuse b - channel 6
+        "PADDING_ZEROES", # roughness - channel 7
     ]
 
     # Create output directories

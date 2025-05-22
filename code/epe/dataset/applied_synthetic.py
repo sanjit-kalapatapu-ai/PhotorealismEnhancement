@@ -97,8 +97,8 @@ class AppliedSyntheticDataset(SyntheticDataset):
 	@property
 	def num_gbuffer_channels(self):
 		""" Number of image channels the provided G-buffers contain."""
-		return 4
-		# return self._num_gbuffer_channels
+		# return 1
+		return self._num_gbuffer_channels
 
 	@property
 	def num_classes(self):
@@ -133,7 +133,7 @@ class AppliedSyntheticDataset(SyntheticDataset):
 		# Slightly concerned from this comment: https://github.com/isl-org/PhotorealismEnhancement/issues/60#issuecomment-1913178238  
 		gbuffers = np.load(gbuffer_path)
 		gbuffers = np.transpose(gbuffers, (2, 1, 0))
-		gbuffers = gbuffers[:4,:,:]
+		# gbuffers = gbuffers[:1,:,:]
 		gbuffers = torch.from_numpy(gbuffers.astype(np.float32)).float()
 		if self._gbuf_mean is not None:
 			gbuffers = center(gbuffers, self._gbuf_mean, self._gbuf_std)

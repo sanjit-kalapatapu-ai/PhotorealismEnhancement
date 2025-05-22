@@ -80,22 +80,22 @@ fi
 
 # Prepare the real dataset
 # log "Preparing real dataset..."
-# python prepare_real_dataset.py $real_dataset_dir
+# python /home/sanjitk/repos/PhotorealismEnhancement/code/scripts/prepare_real_dataset.py $real_dataset_dir
 # log "✓ Real dataset prepared"
 
-# Prepare the synthetic dataset
+# # Prepare the synthetic dataset
 # log "Preparing synthetic dataset..."
 # python /home/sanjitk/repos/PhotorealismEnhancement/code/scripts/prepare_synthetic_dataset.py $synthetic_dataset_dir
 # log "✓ Synthetic dataset prepared"
 
-# Generate the mseg outputs for synthetic dataset:
-# log "Generating MSeg outputs for synthetic dataset..."
-# python -u /home/sanjitk/repos/mseg-semantic/mseg_semantic/tool/universal_demo.py  --config=$mseg_dir/default_config_360_ms.yaml model_name mseg-3m model_path $mseg_dir/mseg-3m.pth input_file $synthetic_dataset_dir/rgb/ save_folder $synthetic_dataset_dir/mseg/
-# log "✓ MSeg outputs for synthetic dataset generated"
+# # Generate the mseg outputs for synthetic dataset:
+# # log "Generating MSeg outputs for synthetic dataset..."
+# # python -u /home/sanjitk/repos/mseg-semantic/mseg_semantic/tool/universal_demo.py  --config=$mseg_dir/default_config_360_ms.yaml model_name mseg-3m model_path $mseg_dir/mseg-3m.pth input_file $synthetic_dataset_dir/rgb/ save_folder $synthetic_dataset_dir/mseg/
+# # log "✓ MSeg outputs for synthetic dataset generated"
 
-# Generate crops of real and synthetic datasets:
+# # Generate crops of real and synthetic datasets:
 # log "Generating crops for datasets..."
-# python /home/sanjitk/repos/PhotorealismEnhancement/code/epe/matching/feature_based/collect_crops.py "$real_dataset_name" "${real_dataset_dir}/${real_dataset_name}_files.csv" --out_dir "$real_dataset_dir"
+# # python /home/sanjitk/repos/PhotorealismEnhancement/code/epe/matching/feature_based/collect_crops.py "$real_dataset_name" "${real_dataset_dir}/${real_dataset_name}_files.csv" --out_dir "$real_dataset_dir"
 # python /home/sanjitk/repos/PhotorealismEnhancement/code/epe/matching/feature_based/collect_crops.py "$synthetic_dataset_name" "${synthetic_dataset_dir}/${synthetic_dataset_name}_files.csv" --out_dir "$synthetic_dataset_dir"
 # log "✓ Crops generated"
 

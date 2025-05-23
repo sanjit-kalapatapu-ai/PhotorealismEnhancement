@@ -95,7 +95,7 @@ fi
 
 # # Generate crops of real and synthetic datasets:
 # log "Generating crops for datasets..."
-# # python /home/sanjitk/repos/PhotorealismEnhancement/code/epe/matching/feature_based/collect_crops.py "$real_dataset_name" "${real_dataset_dir}/${real_dataset_name}_files.csv" --out_dir "$real_dataset_dir"
+# # # python /home/sanjitk/repos/PhotorealismEnhancement/code/epe/matching/feature_based/collect_crops.py "$real_dataset_name" "${real_dataset_dir}/${real_dataset_name}_files.csv" --out_dir "$real_dataset_dir"
 # python /home/sanjitk/repos/PhotorealismEnhancement/code/epe/matching/feature_based/collect_crops.py "$synthetic_dataset_name" "${synthetic_dataset_dir}/${synthetic_dataset_name}_files.csv" --out_dir "$synthetic_dataset_dir"
 # log "✓ Crops generated"
 
@@ -115,7 +115,7 @@ fi
 #     --output_dir "${synthetic_dataset_dir}/knn_match_viz"
 # log "✓ Visualizations generated"
 
-# #Filter crops within 1.0 distance threshold in VGG embedding space:
+# # Filter crops within 1.0 distance threshold in VGG embedding space:
 # log "Filtering crops with distance threshold..."
 # python /home/sanjitk/repos/PhotorealismEnhancement/code/epe/matching/filter.py \
 #     "${synthetic_dataset_dir}/knn_matches.npz" \

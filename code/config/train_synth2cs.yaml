@@ -1,5 +1,5 @@
 ---
-weight_dir: checkpoints/test_small_gbuffers
+weight_dir: checkpoints/material_gbuffers_high_res
 
 common:
   unpin: false
@@ -12,26 +12,26 @@ train:
   max_epochs: -1
   max_iterations: 1000000
   save_epochs: -1
-  save_iterations: 10000
-  name_save: test_small_gbuffers
+  save_iterations: 20000
+  name_save: material_gbuffers_high_res
   shuffle: true
-  val_interval: 1000
+  val_interval: 5000
 test:
   shuffle_test: false
 
 real_dataset:
   name: Cityscapes
-  filelist: /home/sanjitk/repos/PhotorealismEnhancement/data/real/cityscapes_munich_resized/cityscapes_munich_resized_files.csv
+  filelist: /home/sanjitk/repos/PhotorealismEnhancement/data/real/cityscapes_munich/cityscapes_munich_files.csv
 
 fake_dataset: 
   name: AppliedSynthetic
-  train_filelist: /home/sanjitk/repos/PhotorealismEnhancement/data/synthetic/test_small_gbuffers/test_small_gbuffers_files.csv
-  val_filelist: /home/sanjitk/repos/PhotorealismEnhancement/data/synthetic/test_small_gbuffers/test_small_gbuffers_files.csv
-  test_filelist: /home/sanjitk/repos/PhotorealismEnhancement/data/synthetic/test_small_gbuffers/test_small_gbuffers_files.csv
+  train_filelist: /home/sanjitk/repos/PhotorealismEnhancement/data/synthetic/material_gbuffers_high_res/material_gbuffers_high_res_files.csv
+  val_filelist: /home/sanjitk/repos/PhotorealismEnhancement/data/synthetic/material_gbuffers_high_res/material_gbuffers_high_res_files.csv
+  test_filelist: /home/sanjitk/repos/PhotorealismEnhancement/data/synthetic/material_gbuffers_high_res/material_gbuffers_high_res_files.csv
   sampling: 
     type: 'matching'
-    matched_crop_path: /home/sanjitk/repos/PhotorealismEnhancement/data/synthetic/test_small_gbuffers/knn_matches_filtered.csv
-    crop_weight_path: /home/sanjitk/repos/PhotorealismEnhancement/data/synthetic/test_small_gbuffers/crop_weights.npz
+    matched_crop_path: /home/sanjitk/repos/PhotorealismEnhancement/data/synthetic/material_gbuffers_high_res/knn_matches_filtered.csv
+    crop_weight_path: /home/sanjitk/repos/PhotorealismEnhancement/data/synthetic/material_gbuffers_high_res/crop_weights.npz
 
 
 generator:

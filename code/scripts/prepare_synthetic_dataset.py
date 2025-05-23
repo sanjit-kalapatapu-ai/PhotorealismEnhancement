@@ -7,6 +7,9 @@ import numpy as np
 import cv2
 from pathlib import Path
 import csv
+from multiprocessing import Pool, cpu_count
+from functools import partial
+import tqdm
 
 # Mapping from Applied semantic IDs to MSeg universal taxonomy IDs
 
@@ -74,155 +77,99 @@ def convert_gt_seg_mask_to_mseg_mask(gt_seg_mask):
     # Transpose the mask to match RGB orientation
     return mseg_mask.T
 
-def compute_gbuffer_statistics(gbuffer_arrays):
+def process_single_sample(sample_data, dataset, output_dirs, gbuffer_fields):
     """
-    Compute mean and standard deviation for each channel of g-buffer data.
+    Process a single sample data entry.
     
     Args:
-        gbuffer_arrays: List of g-buffer arrays, each of shape (H, W, C) where C is the number of channels
+        sample_data: Sample data entry from dataset
+        dataset: SyntheticDatasetLoader instance
+        output_dirs: Dictionary of output directories
+        gbuffer_fields: List of gbuffer fields to process
         
     Returns:
-        means: Array of shape (C,) with mean per channel
-        stds: Array of shape (C,) with standard deviation per channel
+        list: File mapping [rgb_path, mseg_path, gbuffer_path, gt_seg_path] or None if error
     """
-    # Stack all g-buffers along first dimension
-    all_gbuffers = np.stack(gbuffer_arrays, axis=0)  # (N, H, W, C)
-    
-    # Compute statistics per channel
-    means = np.mean(all_gbuffers, axis=(0,1,2))  # (C,)
-    stds = np.std(all_gbuffers, axis=(0,1,2))  # (C,)
-    
-    return means, stds
+    try:
+        # Get sensor information
+        calibrated_sensor = dataset.get('calibrated_sensor', sample_data.calibrated_sensor_token)
+        sensor = dataset.get('sensor', calibrated_sensor.sensor_token)
+        
+        if sensor.modality != "camera":
+            return None
 
-def compute_and_save_gbuffer_statistics(dataset_dir: Path) -> None:
+        # Extract RGB image and save as PNG
+        rgb_filename = os.path.join(dataset.data_root, sample_data.image_file_path)
+        rgb_basename = os.path.splitext(os.path.basename(rgb_filename))[0] + '.png'
+        rgb_output_path = output_dirs['rgb'] / rgb_basename
+        
+        # Read and save as PNG
+        img = cv2.imread(rgb_filename)
+        cv2.imwrite(str(rgb_output_path), img)
+
+        # Extract and stack g-buffer data
+        sensor_output = dataset.get_sensor_outputs(sample_data.token)[0]
+        
+        # Save gt semantic segmentation 
+        gt_seg = dataset.get_sensor_output_field_data(sensor_output.token, "GROUND_TRUTH_SEMANTIC_CLASS")
+        gt_seg_filename = output_dirs['gt_seg'] / rgb_basename.replace('.png', '.npy')
+        np.save(str(gt_seg_filename), gt_seg)
+
+        # Compute robust label map from gt semantic segmentation
+        mseg_mask = convert_gt_seg_mask_to_mseg_mask(gt_seg)
+        mseg_filename = output_dirs['mseg'] / rgb_basename
+        cv2.imwrite(str(mseg_filename), mseg_mask)
+        
+        # Stack g-buffer fields efficiently
+        gbuffer_arrays = []
+        for field in gbuffer_fields:
+            data = dataset.get_sensor_output_field_data(sensor_output.token, field)
+            if len(data.shape) == 2:
+                data = data[..., np.newaxis]
+            gbuffer_arrays.append(data)
+        
+        # Stack along channel dimension efficiently
+        gbuffer = np.concatenate(gbuffer_arrays, axis=-1)
+        gbuffer_filename = output_dirs['gbuffer'] / rgb_basename.replace('.png', '.npy')
+        np.save(str(gbuffer_filename), gbuffer)
+        
+        return [
+            str(rgb_output_path.absolute()),
+            str(rgb_output_path.absolute().parent.parent / 'mseg' / rgb_output_path.name),
+            str(gbuffer_filename.absolute()),
+            str(gt_seg_filename.absolute())
+        ]
+    except Exception as e:
+        print(f"Error processing sample {sample_data.token}: {str(e)}")
+        return None
+
+def compute_gbuffer_statistics(dataset_dir: Path, file_mappings: list) -> None:
     """
     Compute and save g-buffer statistics by sampling a subset of files.
-    
-    Args:
-        dataset_dir: Path to the dataset directory containing the gbuffer subdirectory
     """
     print("Computing g-buffer statistics...")
     
-    # Get list of all gbuffer files
-    gbuffer_files = list(dataset_dir.glob("gbuffer/*.npy"))
-    print(f"Found {len(gbuffer_files)} g-buffer files")
+    # Sample a subset of files
+    num_samples = min(1000, int(0.1 * len(file_mappings)))
+    sampled_files = np.random.choice([m[2] for m in file_mappings if m], size=num_samples, replace=False)
     
-    # Sample a subset of files (e.g., 1000 files or 10% of the dataset, whichever is smaller)
-    num_samples = min(1000, int(0.1 * len(gbuffer_files)))
-    sampled_files = np.random.choice(gbuffer_files, size=num_samples, replace=False)
-    print(f"Sampling {num_samples} files for statistics computation")
+    # Load files in parallel
+    with Pool(cpu_count()) as pool:
+        gbuffer_arrays = list(tqdm.tqdm(
+            pool.imap(np.load, sampled_files),
+            total=len(sampled_files),
+            desc="Loading gbuffer files"
+        ))
     
-    # Load and process sampled files
-    means_per_file = []
-    for gbuffer_filename in sampled_files:
-        gbuffer = np.load(gbuffer_filename)
-        means_per_file.append(gbuffer.mean(axis=(0, 1)))  # Average over height and width
-    
-    # Stack and compute final statistics
-    means_per_file = np.stack(means_per_file)
-    g_means = means_per_file.mean(axis=0)
-    g_stds = means_per_file.std(axis=0)
+    # Stack and compute statistics efficiently
+    means = np.mean([arr.mean(axis=(0, 1)) for arr in gbuffer_arrays], axis=0)
+    stds = np.std([arr.mean(axis=(0, 1)) for arr in gbuffer_arrays], axis=0)
     
     stats_file = dataset_dir / 'gbuffer_stats.npz'
-    np.savez(
-        stats_file,
-        g_m=g_means,  # shape: (C,) - one mean per channel
-        g_s=g_stds    # shape: (C,) - one std per channel
-    )
+    np.savez(stats_file, g_m=means, g_s=stds)
     print(f"Saved g-buffer statistics to {stats_file}")
-    print(f"G-buffer means: {g_means}")
-    print(f"G-buffer stds: {g_stds}")
-
-def write_dataset_csv(dataset_dir: Path, file_mappings: list) -> None:
-    """
-    Write the dataset file mappings to a CSV file.
-    
-    Args:
-        dataset_dir: Path to the dataset directory
-        file_mappings: List of lists containing [rgb_path, mseg_path, gbuffer_path, gt_seg_path]
-    """
-    csv_path = dataset_dir / f"{dataset_dir.name}_files.csv"
-    print(f"Writing CSV file to {csv_path}")
-    with open(csv_path, 'w', newline='') as f:
-        writer = csv.writer(f)
-        writer.writerows(file_mappings)
-    
-    print(f"Found {len(file_mappings)} images")
-    print(f"CSV file created at: {csv_path}")
-
-def process_dataset(dataset, dataset_dir: Path, output_dirs: dict, gbuffer_fields: list) -> list:
-    """
-    Process the dataset by iterating through scenes, samples, and sample data.
-    
-    Args:
-        dataset: SyntheticDatasetLoader instance
-        dataset_dir: Path to the dataset directory
-        output_dirs: Dictionary mapping directory types to their paths
-        gbuffer_fields: List of g-buffer field names to process
-        
-    Returns:
-        list: List of file mappings [rgb_path, mseg_path, gbuffer_path, gt_seg_path]
-    """
-    file_mappings = []
-    
-    for scene in dataset.list_scenes():
-        for sample in dataset.get_samples(scene.token):
-            for sample_data in dataset.get_sample_data(sample.token):
-                # Get sensor information
-                calibrated_sensor = dataset.get('calibrated_sensor', sample_data.calibrated_sensor_token)
-                sensor = dataset.get('sensor', calibrated_sensor.sensor_token)
-                sensor_modality = sensor.modality
-
-                print(f"Processing sample_data token: {sample_data.token}")
-
-                if sensor_modality == "camera":
-                    # Extract RGB image and save as PNG
-                    rgb_filename = os.path.join(dataset_dir, sample_data.image_file_path)
-                    rgb_basename = os.path.splitext(os.path.basename(rgb_filename))[0] + '.png'
-                    rgb_output_path = output_dirs['rgb'] / rgb_basename
-                    
-                    # Read and save as PNG
-                    img = cv2.imread(rgb_filename)
-                    cv2.imwrite(str(rgb_output_path), img)
-
-                    # Extract and stack g-buffer data
-                    sensor_output = dataset.get_sensor_outputs(sample_data.token)[0]
-                    
-                    # Save gt semantic segmentation 
-                    gt_seg = dataset.get_sensor_output_field_data(sensor_output.token, "GROUND_TRUTH_SEMANTIC_CLASS")
-                    gt_seg_filename = output_dirs['gt_seg'] / rgb_basename.replace('.png', '.npy')
-                    np.save(str(gt_seg_filename), gt_seg)
-
-                    # Compute robust label map from gt semantic segmentation by mapping applied labels to mseg universal taxonomy labels
-                    mseg_mask = convert_gt_seg_mask_to_mseg_mask(gt_seg)
-                    mseg_filename = output_dirs['mseg'] / rgb_basename
-                    cv2.imwrite(str(mseg_filename), mseg_mask)
-                    
-                    # Stack g-buffer fields
-                    gbuffer_arrays = []
-                    for field in gbuffer_fields:
-                        data = dataset.get_sensor_output_field_data(sensor_output.token, field)
-                        # Ensure data is 3D with channel dimension
-                        if len(data.shape) == 2:
-                            data = data[..., np.newaxis]
-                        gbuffer_arrays.append(data)
-                    
-                    # Stack along the channel dimension
-                    gbuffer = np.concatenate(gbuffer_arrays, axis=-1)
-                    gbuffer_filename = output_dirs['gbuffer'] / rgb_basename.replace('.png', '.npy')
-                    np.save(str(gbuffer_filename), gbuffer)
-                    
-                    # Store absolute paths for CSV
-                    file_mappings.append([
-                        str(rgb_output_path.absolute()),
-                        str(rgb_output_path.absolute().parent.parent / 'mseg' / rgb_output_path.name),
-                        str(gbuffer_filename.absolute()),
-                        str(gt_seg_filename.absolute())
-                    ])
-                else:
-                    print(f"Skipping non-camera modality: {sensor_modality}")
-    
-    return file_mappings
+    print(f"G-buffer means: {means}")
+    print(f"G-buffer stds: {stds}")
 
 def prepare_synthetic_dataset(dataset_dir: str) -> None:
     """
@@ -259,15 +206,38 @@ def prepare_synthetic_dataset(dataset_dir: str) -> None:
     # Load dataset
     dataset = SyntheticDatasetLoader.load_from_local_dataroot(local_dataroot=str(dataset_dir))
     
-    # Process dataset and get file mappings
-    file_mappings = process_dataset(dataset, dataset_dir, output_dirs, gbuffer_fields)
+    # Collect all sample data entries
+    all_sample_data = []
+    for scene in dataset.list_scenes():
+        for sample in dataset.get_samples(scene.token):
+            all_sample_data.extend(dataset.get_sample_data(sample.token))
+    
+    # Process samples in parallel
+    process_func = partial(process_single_sample, dataset=dataset, output_dirs=output_dirs, gbuffer_fields=gbuffer_fields)
+    
+    print(f"Processing {len(all_sample_data)} samples using {cpu_count()} processes...")
+    with Pool(cpu_count()) as pool:
+        file_mappings = list(tqdm.tqdm(
+            pool.imap(process_func, all_sample_data),
+            total=len(all_sample_data),
+            desc="Processing samples"
+        ))
+    
+    # Filter out None results from failed processing
+    file_mappings = [m for m in file_mappings if m is not None]
     
     # Compute and save g-buffer statistics
-    compute_and_save_gbuffer_statistics(dataset_dir)
+    compute_gbuffer_statistics(dataset_dir, file_mappings)
     
     # Write CSV file
-    write_dataset_csv(dataset_dir, file_mappings)
+    csv_path = dataset_dir / f"{dataset_dir.name}_files.csv"
+    print(f"Writing CSV file to {csv_path}")
+    with open(csv_path, 'w', newline='') as f:
+        writer = csv.writer(f)
+        writer.writerows(file_mappings)
     
+    print(f"Found {len(file_mappings)} valid images")
+    print(f"CSV file created at: {csv_path}")
     print("Processing complete!")
 
 def main():
